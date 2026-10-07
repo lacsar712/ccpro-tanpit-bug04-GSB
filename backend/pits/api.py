@@ -3,7 +3,7 @@ from ninja.errors import HttpError
 
 from pits.auth import BearerAuth, make_token
 from pits.models import Pit, User, Yard
-from pits.rules import RuleError, assert_can_set_status, latest_ph, median_ph
+from pits.rules import RuleError, assert_can_set_status, latest_ph
 
 api = NinjaAPI(title="TanPit", urls_namespace="tanpit")
 auth = BearerAuth()
@@ -29,7 +29,7 @@ def pit_json(pit: Pit) -> dict:
         "status": pit.status,
         "row": pit.row,
         "col": pit.col,
-        "latestPh": median_ph(pit),
+        "latestPh": latest_ph(pit),
         "sampleCount": pit.samples.count(),
         "recentSamples": [
             {"ph": s.ph, "takenAt": s.taken_at.isoformat(), "operator": s.operator}

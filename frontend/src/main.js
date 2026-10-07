@@ -139,7 +139,7 @@ class TanYard extends LitElement {
       ${this.picked
         ? html`<section>
             <h3>${this.picked.code} · ${LABELS[this.picked.status]}</h3>
-            <p>近次（中位）：${this.picked.latestPh ?? "无"} · ${this.picked.sampleCount} 次</p>
+            <p>近次排头：${this.picked.latestPh ?? "无"} · ${this.picked.sampleCount} 次</p>
             <ul>
               ${(this.picked.recentSamples || []).map(
                 (s, idx) => html`<li>${idx === 0 ? "近次排头" : "更早"}：${s.ph}</li>`
