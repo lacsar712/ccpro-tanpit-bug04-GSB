@@ -1,9 +1,10 @@
+from django.db import transaction
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 
 from pits.auth import BearerAuth, make_token
 from pits.models import Pit, User, Yard
-from pits.rules import RuleError, assert_can_set_status, latest_ph, median_ph
+from pits.rules import RuleError, assert_can_set_status, latest_ph
 
 api = NinjaAPI(title="TanPit", urls_namespace="tanpit")
 auth = BearerAuth()
@@ -29,7 +30,7 @@ def pit_json(pit: Pit) -> dict:
         "status": pit.status,
         "row": pit.row,
         "col": pit.col,
-        "latestPh": median_ph(pit),
+        "latestPh": latest_ph(pit),
         "sampleCount": pit.samples.count(),
         "recentSamples": [
             {"ph": s.ph, "takenAt": s.taken_at.isoformat(), "operator": s.operator}
@@ -78,13 +79,15 @@ def add_sample(request, pit_id: int, payload: SampleIn):
 
 @api.post("/pits/{pit_id}/status", auth=auth)
 def set_status(request, pit_id: int, payload: StatusIn):
-    pit = Pit.objects.filter(id=pit_id).first()
-    if pit is None:
-        raise HttpError(404, "坑不存在")
-    try:
-        assert_can_set_status(pit, payload.status)
-    except RuleError as exc:
-        raise HttpError(400, str(exc))
-    pit.status = payload.status
-    pit.save(update_fields=["status"])
+    # 两名值班可能抢按放液钮：锁行把「读排头 → 比门槛 → 写状态」收成原子动作
+    with transaction.atomic():
+        pit = Pit.objects.select_for_update().filter(id=pit_id).first()
+        if pit is None:
+            raise HttpError(404, "坑不存在")
+        try:
+            assert_can_set_status(pit, payload.status)
+        except RuleError as exc:
+            raise HttpError(400, str(exc))
+        pit.status = payload.status
+        pit.save(update_fields=["status"])
     return pit_json(pit)
